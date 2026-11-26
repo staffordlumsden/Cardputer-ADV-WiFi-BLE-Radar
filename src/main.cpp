@@ -48,6 +48,14 @@ constexpr uint16_t Black = 0x0000;
 
 constexpr size_t kMaxTargets = 40;
 constexpr uint32_t kRenderIntervalMs = 200;
+constexpr float kInternalTextScale = 2.5f;
+constexpr int kRadarPlotX = 20;
+constexpr int kRadarPlotY = 36;
+constexpr int kRadarPlotWidth = 165;
+constexpr int kRadarPlotHeight = 165;
+constexpr int kRadarCentreX = 102;
+constexpr int kRadarCentreY = 118;
+constexpr int kRadarRadius = 78;
 
 struct RadioSnapshot {
     SignalTarget wifi[kMaxTargets]{};
@@ -211,35 +219,32 @@ void drawInternal() {
     auto& d = gDisplay.internal();
     d.fillScreen(int_colour::Off);
     d.drawRect(0, 0, d.width(), d.height(), int_colour::Peak);
+    d.setTextSize(kInternalTextScale);
     d.setTextColor(int_colour::Peak, int_colour::Off);
-    d.setTextSize(2);
-    d.setCursor(6, 5);
+    d.setCursor(6, 3);
     d.print("RADAR");
-    d.setTextSize(1);
     d.setTextColor(int_colour::Mid, int_colour::Off);
-    d.setCursor(158, 8);
+    d.setCursor(128, 3);
     d.printf("W%u B%u", static_cast<unsigned>(gView.wifiCount),
              static_cast<unsigned>(gView.bleCount));
-    d.drawFastHLine(1, 22, d.width() - 2, int_colour::Mid);
+    d.drawFastHLine(1, 27, d.width() - 2, int_colour::Mid);
 
     const SignalTarget* target = selectedTarget();
     d.setTextColor(int_colour::Main, int_colour::Off);
-    d.setTextSize(2);
-    d.setCursor(6, 31);
+    d.setCursor(6, 33);
     d.print(gSelectedKind == RadioKind::Wifi ? "WI-FI" : "BLE");
-    d.setTextSize(1);
-    d.setCursor(6, 56);
-    d.print(target ? target->name : "SCANNING...");
+
+    char primary[16] = {0};
+    copyText(primary, sizeof(primary),
+             gStatus[0] ? gStatus : (target ? target->name : "SCANNING"));
+    d.setCursor(6, 59);
+    d.print(primary);
     if (target) {
-        d.setCursor(6, 73);
-        d.printf("%d dBm  %d%%", target->rssi, signalPercent(target->rssi));
-        drawSignalBar(d, 6, 89, 226, 9, target->rssi,
+        d.setCursor(6, 85);
+        d.printf("%dDBM %d%%", target->rssi, signalPercent(target->rssi));
+        drawSignalBar(d, 6, 112, 226, 12, target->rssi,
                       int_colour::Peak, int_colour::Grid);
     }
-    d.setTextColor(int_colour::Mid, int_colour::Off);
-    d.setCursor(6, 113);
-    d.print(gStatus[0] ? gStatus :
-            (gCurrentView == View::List ? "</> RADIO  ENTER TRACK" : "ESC LIST  Q HOME"));
 }
 
 void drawHeader(LovyanGFX& d, const char* mode) {
@@ -315,6 +320,30 @@ void drawListExternal(LovyanGFX& d) {
     d.print(gStatus[0] ? gStatus : "</> RADIO  ;/. SELECT  ENTER TRACK  L LOG  Q HOME");
 }
 
+void drawRadarPlot(LovyanGFX& d, const SignalTarget& target, bool clearRegion) {
+    if (clearRegion) {
+        d.fillRect(kRadarPlotX, kRadarPlotY, kRadarPlotWidth, kRadarPlotHeight,
+                   ext_colour::Off);
+    }
+    for (int r = 20; r <= kRadarRadius; r += 20) {
+        d.drawCircle(kRadarCentreX, kRadarCentreY, r, ext_colour::Grid);
+    }
+    d.drawFastHLine(kRadarCentreX - kRadarRadius, kRadarCentreY,
+                    kRadarRadius * 2, ext_colour::Grid);
+    d.drawFastVLine(kRadarCentreX, kRadarCentreY - kRadarRadius,
+                    kRadarRadius * 2, ext_colour::Grid);
+    const float radians = gSweepAngle * 0.0174532925f;
+    const int sx = kRadarCentreX + static_cast<int>(std::cos(radians) * kRadarRadius);
+    const int sy = kRadarCentreY + static_cast<int>(std::sin(radians) * kRadarRadius);
+    d.drawLine(kRadarCentreX, kRadarCentreY, sx, sy, ext_colour::Dim);
+
+    const int strength = signalPercent(target.rssi);
+    const int blipRadius = std::max(8, kRadarRadius - (strength * 68 / 100));
+    const int bx = kRadarCentreX + static_cast<int>(std::cos(radians) * blipRadius);
+    const int by = kRadarCentreY + static_cast<int>(std::sin(radians) * blipRadius);
+    d.fillCircle(bx, by, 3, ext_colour::Peak);
+}
+
 void drawRadarExternal(LovyanGFX& d) {
     drawHeader(d, "TARGET");
     const SignalTarget* target = selectedTarget();
@@ -326,22 +355,7 @@ void drawRadarExternal(LovyanGFX& d) {
         return;
     }
 
-    const int cx = 102;
-    const int cy = 118;
-    const int radius = 78;
-    for (int r = 20; r <= radius; r += 20) d.drawCircle(cx, cy, r, ext_colour::Grid);
-    d.drawFastHLine(cx - radius, cy, radius * 2, ext_colour::Grid);
-    d.drawFastVLine(cx, cy - radius, radius * 2, ext_colour::Grid);
-    const float radians = gSweepAngle * 0.0174532925f;
-    const int sx = cx + static_cast<int>(std::cos(radians) * radius);
-    const int sy = cy + static_cast<int>(std::sin(radians) * radius);
-    d.drawLine(cx, cy, sx, sy, ext_colour::Dim);
-
-    const int strength = signalPercent(target->rssi);
-    const int blipRadius = std::max(8, radius - (strength * 68 / 100));
-    const int bx = cx + static_cast<int>(std::cos(radians) * blipRadius);
-    const int by = cy + static_cast<int>(std::sin(radians) * blipRadius);
-    d.fillCircle(bx, by, 3, ext_colour::Peak);
+    drawRadarPlot(d, *target, false);
 
     d.drawRect(195, 34, 117, 157, ext_colour::Mid);
     d.setTextColor(ext_colour::Peak, ext_colour::Off);
@@ -388,10 +402,21 @@ void externalRenderer(LovyanGFX& d, void*) {
     else drawRadarExternal(d);
 }
 
+void radarAnimationRenderer(LovyanGFX& d, void*) {
+    const SignalTarget* target = selectedTarget();
+    if (target) drawRadarPlot(d, *target, true);
+}
+
 void renderNow() {
     drawInternal();
     if (gDisplay.isExternalReady()) gDisplay.renderExternal(externalRenderer);
     gRenderedRevision = gView.revision;
+    gLastRenderMs = millis();
+}
+
+void renderRadarAnimation() {
+    if (gCurrentView != View::Target || !gDisplay.isExternalReady()) return;
+    gDisplay.renderExternal(radarAnimationRenderer);
     gLastRenderMs = millis();
 }
 
@@ -511,12 +536,13 @@ void loop() {
         gStatus[0] = '\0';
         gRenderedRevision = UINT32_MAX;
     }
-    if (gCurrentView == View::Target && now - gLastRenderMs >= kRenderIntervalMs) {
+    if (gRenderedRevision != gView.revision) {
+        renderNow();
+    } else if (gCurrentView == View::Target &&
+               now - gLastRenderMs >= kRenderIntervalMs) {
         gSweepAngle += 11.0f;
         if (gSweepAngle >= 360.0f) gSweepAngle -= 360.0f;
-        renderNow();
-    } else if (gRenderedRevision != gView.revision) {
-        renderNow();
+        renderRadarAnimation();
     }
     delay(12);
 }
