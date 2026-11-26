@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "id": "radar",
+  "name": "Wi-Fi BLE Radar",
+  "version": "0.1.0",
+  "target": "cardputer-adv",
+  "binary": "app.bin",
+  "sdk_version": 1,
+  "category": "Wireless",
+  "external_display": true,
+  "internal_display": true
+}

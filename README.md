@@ -1,3 +1,51 @@
+# PHOSPHOR/83 SD Firmware Fork
+
+This fork now contains an independent, source-available Cardputer ADV firmware
+under [`src/`](src/) that is designed for the ADV Console SD application
+loader. It does **not** contain or reconstruct Zeloksa's private V4.0 source.
+The public upstream README is retained below for attribution and feature
+comparison; features claimed there are not automatically claims about this
+fork.
+
+Implemented in this fork:
+
+- Continuous passive Wi-Fi and BLE discovery, alternating the shared radio.
+- Strongest-signal lists, target proximity view, RSSI percentage and estimated
+  distance.
+- Orange PHOSPHOR/83 UI on the internal Cardputer display and the validated
+  external ILI9341 profile (GPIO40/14/5/6/3, 40 MHz, rotation 1).
+- CSV export to `/radar-log.csv` on microSD.
+- Cooperative return to the persistent ADV Console launcher.
+- SD package manifest and a guarded PlatformIO build that blocks ordinary
+  direct upload so the factory launcher is not overwritten accidentally.
+
+The sweep is explicitly a visualisation: a single omnidirectional ESP32-S3
+antenna cannot determine bearing. This implementation makes no 5 GHz,
+Bluetooth Classic, DPI, GATT-audit, WIDS, drone-decoding, or hidden-SSID
+unmasking claim.
+
+Build and package:
+
+```bash
+pio run -e radar-cardputer-adv
+python3 tools/package_app.py \
+  --manifest package/manifest.json \
+  --binary .pio/build/radar-cardputer-adv/firmware.bin \
+  --out dist/sd/apps/radar
+```
+
+Copy `dist/sd/apps/radar/` to `SD:/apps/radar/`. In the corresponding ADV
+Console launcher, the former `WIRELESS` item is labelled `RADAR` and directly
+installs or launches manifest ID `radar`.
+
+The new code in this fork is licensed under the MIT License in [`LICENSE`](LICENSE).
+The retained upstream description and upstream proprietary firmware remain
+subject to their original author's terms.
+
+---
+
+## Upstream project description (retained for attribution)
+
 ![Version](https://img.shields.io/badge/Version-4.0_ADV-blue)
 ![Hardware](https://img.shields.io/badge/Hardware-Cardputer-orange)
 ![Platform](https://img.shields.io/badge/Platform-M5Stack-red)

@@ -1,0 +1,9 @@
+{
+  "name": "cardputer-adv-console-support",
+  "version": "0.1.0",
+  "description": "Minimal lifecycle, display, keyboard, config and SD support for the Radar SD app",
+  "build": {
+    "includeDir": ".",
+    "srcDir": "."
+  }
+}
